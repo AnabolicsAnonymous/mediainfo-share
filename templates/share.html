@@ -30,22 +30,6 @@
             </div>
 
             <div class="space-y-4">
-                <!-- Share Link -->
-                <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-zinc-400">Share Link</span>
-                        <button onclick="copyToClipboard('shareLink', this)" class="text-zinc-500 hover:text-zinc-300 transition-colors">
-                            <i class="far fa-copy"></i>
-                        </button>
-                    </div>
-                    <input type="text" 
-                        id="shareLink" 
-                        value="{{ request.url_root }}share/{{ media_id }}"
-                        class="mono w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-sm text-zinc-300"
-                        readonly
-                    >
-                </div>
-
                 <!-- Preview Link -->
                 <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-2">
