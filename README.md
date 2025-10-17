@@ -1,26 +1,14 @@
-# MediaInfo-Share
+# MediaInfo Share
 
-<div align="center">
-  <img src="https://img.shields.io/badge/Python-3.8%2B-blue" alt="Python Version">
-  <img src="https://img.shields.io/badge/Flask-3.0.2-green" alt="Flask Version">
-  <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License">
-</div>
+MediaInfo Share is a small Flask application for storing MediaInfo output and giving people a link they can preview or download.
 
-<br>
+## Features
 
-A modern web application for sharing MediaInfo output with a clean, user-friendly interface.
+- Upload raw MediaInfo output and keep a formatted preview
+- Optional expiration window for shared links
+- Automatic cleanup job that removes expired entries and their files
 
-## ✨ Features
-
-- 🎥 Upload and share MediaInfo output
-- ⏱️ Automatic link expiration (24 hours)
-- 📱 Responsive design
-- 🎨 Modern UI with Font Awesome icons
-- 🔄 Real-time preview
-- 📋 One-click copy functionality
-- 🧹 Automatic cleanup of expired entries
-
-### 🚀 Installation
+## Quick Start
 
 1. Clone the repository:
    ```bash
@@ -28,49 +16,41 @@ A modern web application for sharing MediaInfo output with a clean, user-friendl
    cd mediainfo-share
    ```
 
-2. Create and activate a virtual environment:
+2. Copy the provided `.env.example` and fill it in. At minimum you need `SECRET_KEY` and `ENCRYPTION_KEY`. Generate values with:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   python -c "import secrets; print(secrets.token_hex(32))"     # SECRET_KEY
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # ENCRYPTION_KEY
+   ```
+   Paste the results into `.env`.
+
+4. Build and start the application:
+   ```bash
+   docker compose up --build -d
    ```
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+5. Visit the UI at `http://localhost:5000`.
 
-4. Create a `.env` file with your configuration using the .env.example template.
 
-### Running the Application
+## Updating
 
-1. Start the Flask development server:
-   ```bash
-   flask run
-   ```
+Fetch the latest code, rebuild, and restart:
+```bash
+git pull
+docker compose up --build -d
+```
 
-2. Open your browser and navigate to `http://localhost:5000`
+## Contributing
 
-## 🤝 Contributing
+Bug reports, feature requests, and pull requests are all welcome. Please open an issue first if you plan a larger change so we can talk through the approach.
 
-Contributions are welcome! Please feel free to submit a Pull Request or issue any time!
+## License
 
-## 📄 License
+MediaInfo Share is released under the GNU Affero General Public License v3.0. See [LICENSE](LICENSE) for the full terms.
 
-This project is licensed under the GNU Affero General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+## Support
 
-## 🙏 Acknowledgments
-
-- [Flask](https://flask.palletsprojects.com/) - Web framework
-- [MediaInfo](https://mediaarea.net/en/MediaInfo) - Media analysis tool
-- [Font Awesome](https://fontawesome.com/) - Icons
-- [cryptography](https://cryptography.io/) - Password encryption
-- [python-dotenv](https://github.com/theskumar/python-dotenv) - Environment management
-
-## 💖 Support
-
-If you find this project useful, consider supporting it:
+If this project saves you time, tips are appreciated:
 
 - Bitcoin: `bc1q7nxt23ahfluesy2kxgjdkqhh7qcc3gda6wmla5`
-- Ethereum: `0x24D898b1BA57BC8F5B510A841EeE8c75dcD8397d`
-- USDC: `0x24D898b1BA57BC8F5B510A841EeE8c75dcD8397d`
+- Ethereum / USDC: `0x24D898b1BA57BC8F5B510A841EeE8c75dcD8397d`
 - Litecoin: `LL2pHmU4tYvKUCcBem3ehdrFeeuQuGbWNX`
