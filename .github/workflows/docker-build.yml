@@ -3,17 +3,17 @@ name: Docker Build Test
 on:
   push:
     paths:
+      - '**/*.py'
       - '**/Dockerfile'
       - '**/requirements.txt'
       - 'docker-compose.yml'
-      - 'app.py'
       - '.github/workflows/docker-build.yml'
   pull_request:
     paths:
+      - '**/*.py'
       - '**/Dockerfile'
       - '**/requirements.txt'
       - 'docker-compose.yml'
-      - 'app.py'
       - '.github/workflows/docker-build.yml'
 
 jobs:
