@@ -11,8 +11,20 @@ the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
 
-from typing import Dict, Optional
+from dataclasses import dataclass
+from typing import Callable, Dict, Optional, Tuple
 from models import AudioTrack
+
+Rule = Tuple[str, Callable[[str], str]]
+
+
+@dataclass
+class ParserState:
+    """Keep track of the current section and audio track during parsing."""
+
+    section: Optional[str] = None
+    track: Optional[AudioTrack] = None
+    track_type: Optional[str] = None
 
 class MediaInfoParser:
     """Class for parsing MediaInfo output into a dictionary"""
@@ -33,6 +45,126 @@ class MediaInfoParser:
             "KR": "🇰🇷",
             "RU": "🇷🇺",
         }
+        self._general_rules: Dict[str, Rule] = {}
+        self._video_rules: Dict[str, Rule] = {}
+        self._audio_rules: Dict[str, Rule] = {}
+
+        self._register_rules(self._general_rules, "format", "format", self._identity)
+        self._register_rules(self._general_rules, "duration", "duration", self._identity)
+        self._register_rules(
+            self._general_rules,
+            ["overall bit rate", "bit rate"],
+            "bitrate",
+            self._identity,
+        )
+        self._register_rules(
+            self._general_rules,
+            ["file size", "size"],
+            "size",
+            self._identity,
+        )
+        self._register_rules(
+            self._general_rules,
+            "frame rate",
+            "frame_rate",
+            self._identity,
+        )
+        self._register_rules(
+            self._general_rules,
+            "complete name",
+            "complete_name",
+            self._identity,
+        )
+
+        self._register_rules(self._video_rules, "format", "format", self._identity)
+        self._register_rules(
+            self._video_rules,
+            "width",
+            "width",
+            self._normalize_dimension,
+        )
+        self._register_rules(
+            self._video_rules,
+            "height",
+            "height",
+            self._normalize_dimension,
+        )
+        self._register_rules(
+            self._video_rules,
+            ["display aspect ratio", "aspect ratio"],
+            "aspect_ratio",
+            self._identity,
+        )
+        self._register_rules(
+            self._video_rules,
+            ["frame rate", "frame rate mode"],
+            "frame_rate",
+            self._identity,
+        )
+        self._register_rules(
+            self._video_rules,
+            ["bit rate", "nominal bit rate"],
+            "bit_rate",
+            self._identity,
+        )
+        self._register_rules(
+            self._video_rules,
+            ["bit depth", "bit depth (bits)"],
+            "bit_depth",
+            self._identity,
+        )
+        self._register_rules(
+            self._video_rules,
+            "hdr format",
+            "hdr_format",
+            self._identity,
+        )
+        self._register_rules(
+            self._video_rules,
+            "color primaries",
+            "color_primaries",
+            self._identity,
+        )
+        self._register_rules(
+            self._video_rules,
+            "transfer characteristics",
+            "transfer_characteristics",
+            self._identity,
+        )
+
+        self._register_rules(self._audio_rules, "language", "language", self._identity)
+        self._register_rules(self._audio_rules, "format", "format", self._identity)
+        self._register_rules(
+            self._audio_rules,
+            ["channel(s)", "channels"],
+            "channels",
+            self._identity,
+        )
+        self._register_rules(
+            self._audio_rules,
+            ["bit rate", "nominal bit rate"],
+            "bit_rate",
+            self._identity,
+        )
+        self._register_rules(
+            self._audio_rules,
+            "format settings",
+            "format_settings",
+            self._identity,
+        )
+        self._register_rules(
+            self._audio_rules,
+            ["sampling rate", "sampling frequency"],
+            "sampling_rate",
+            self._identity,
+        )
+        self._register_rules(
+            self._audio_rules,
+            "commercial name",
+            "commercial_name",
+            self._identity,
+        )
+        self._register_rules(self._audio_rules, "title", "title", self._identity)
 
     def get_language_flag(self, lang_code: Optional[str]) -> str:
         """Get the language flag for a given language code"""
@@ -58,53 +190,21 @@ class MediaInfoParser:
                 "subtitles": []
             }
 
-            current_section = None
-            current_track = None
-            current_track_type = None
+            state = ParserState()
 
             for line in content.split("\n"):
                 line = line.strip()
                 if not line:
                     continue
 
-                if line == "General":
-                    current_section = "general"
-                    current_track = None
-                    current_track_type = None
-                    continue
-                elif line.startswith("Video"):
-                    current_section = "video"
-                    current_track = None
-                    current_track_type = None
-                    continue
-                elif line.startswith("Audio"):
-                    if current_track and current_track_type == "audio":
-                        info["audio"].append(current_track.__dict__)
-                    current_section = "audio"
-                    current_track = AudioTrack()
-                    current_track_type = "audio"
-                    continue
-                elif line.startswith("Text"):
-                    if current_track and current_track_type == "audio":
-                        info["audio"].append(current_track.__dict__)
-                    current_section = "text"
-                    current_track = None
-                    current_track_type = "text"
-                    continue
-                elif line == "Menu":
-                    current_section = "menu"
-                    current_track = None
-                    current_track_type = None
+                if self._update_section(line, state, info):
                     continue
 
                 if ":" in line:
                     key, value = map(str.strip, line.split(":", 1))
-                    self._parse_key_value(
-                        key, value, current_section, info, current_track
-                    )
+                    self._parse_key_value(key, value, state, info)
 
-            if current_track and current_track_type == "audio":
-                info["audio"].append(current_track.__dict__)
+            self._flush_audio_track(info, state)
 
             for track in info["audio"]:
                 if track.get("language"):
@@ -120,68 +220,121 @@ class MediaInfoParser:
         self,
         key: str,
         value: str,
-        section: str,
+        state: ParserState,
         info: Dict,
-        current_track: Optional[AudioTrack],
     ) -> None:
         key = key.lower()
+        section = state.section
+
+        if section is None:
+            return
 
         if section == "general":
-            if key == "format":
-                info["general"]["format"] = value
-            elif key == "duration":
-                info["general"]["duration"] = value
-            elif key in ["overall bit rate", "bit rate"]:
-                info["general"]["bitrate"] = value
-            elif key in ["file size", "size"]:
-                info["general"]["size"] = value
-            elif key == "frame rate":
-                info["general"]["frame_rate"] = value
-            elif key == "complete name":
-                info["general"]["complete_name"] = value
+            self._apply_rule(info["general"], key, value, self._general_rules)
+            return
 
-        elif section == "video":
-            if key == "format":
-                info["video"]["format"] = value
-            elif key == "width":
-                info["video"]["width"] = value.replace("pixels", "").replace(" ", "").strip()
-            elif key == "height":
-                info["video"]["height"] = value.replace("pixels", "").replace(" ", "").strip()
-            elif key in ["display aspect ratio", "aspect ratio"]:
-                info["video"]["aspect_ratio"] = value
-            elif key in ["frame rate", "frame rate mode"]:
-                info["video"]["frame_rate"] = value
-            elif key in ["bit rate", "nominal bit rate"]:
-                info["video"]["bit_rate"] = value
-            elif key in ["bit depth", "bit depth (bits)"]:
-                info["video"]["bit_depth"] = value
-            elif key == "hdr format":
-                info["video"]["hdr_format"] = value
-            elif key == "color primaries":
-                info["video"]["color_primaries"] = value
-            elif key == "transfer characteristics":
-                info["video"]["transfer_characteristics"] = value
+        if section == "video":
+            self._apply_rule(info["video"], key, value, self._video_rules)
+            return
 
-        elif section == "audio" and current_track:
-            if key == "language":
-                current_track.language = value
-            elif key == "format":
-                current_track.format = value
-            elif key in ["channel(s)", "channels"]:
-                current_track.channels = value
-            elif key in ["bit rate", "nominal bit rate"]:
-                current_track.bit_rate = value
-            elif key == "format settings":
-                current_track.format_settings = value
-            elif key in ["sampling rate", "sampling frequency"]:
-                current_track.sampling_rate = value
-            elif key == "commercial name":
-                current_track.commercial_name = value
-            elif key == "title":
-                current_track.title = value
+        if section == "audio" and state.track:
+            self._apply_audio_rule(state.track, key, value)
+            return
 
-        elif section == "text" and key == "language":
+        if section == "text" and key == "language":
             info["subtitles"].append({
                 "language": value,
                 "flag": self.get_language_flag(value)
             })
+
+    @staticmethod
+    def _register_rules(
+        target: Dict[str, Rule],
+        keys,
+        field: str,
+        transformer: Callable[[str], str],
+    ) -> None:
+        if isinstance(keys, (list, tuple, set)):
+            for key in keys:
+                target[key] = (field, transformer)
+        else:
+            target[keys] = (field, transformer)
+
+    @staticmethod
+    def _identity(value: str) -> str:
+        return value
+
+    @staticmethod
+    def _normalize_dimension(value: str) -> str:
+        return value.replace("pixels", "").replace(" ", "").strip()
+
+    def _apply_rule(
+        self,
+        target: Dict,
+        key: str,
+        value: str,
+        rules: Dict[str, Rule],
+    ) -> None:
+        rule = rules.get(key)
+        if not rule:
+            return
+        field, transformer = rule
+        target[field] = transformer(value)
+
+    def _apply_audio_rule(self, track: AudioTrack, key: str, value: str) -> None:
+        rule = self._audio_rules.get(key)
+        if not rule:
+            return
+        field, transformer = rule
+        setattr(track, field, transformer(value))
+
+    def _update_section(
+        self,
+        line: str,
+        state: ParserState,
+        info: Dict,
+    ) -> bool:
+        header = line.lower()
+        if header == "general":
+            self._flush_audio_track(info, state)
+            state.section = "general"
+            state.track = None
+            state.track_type = None
+            return True
+
+        if header.startswith("video"):
+            self._flush_audio_track(info, state)
+            state.section = "video"
+            state.track = None
+            state.track_type = None
+            return True
+
+        if header.startswith("audio"):
+            self._flush_audio_track(info, state)
+            state.section = "audio"
+            state.track = AudioTrack()
+            state.track_type = "audio"
+            return True
+
+        if header.startswith("text"):
+            self._flush_audio_track(info, state)
+            state.section = "text"
+            state.track = None
+            state.track_type = "text"
+            return True
+
+        if header == "menu":
+            self._flush_audio_track(info, state)
+            state.section = "menu"
+            state.track = None
+            state.track_type = None
+            return True
+
+        return False
+
+    @staticmethod
+    def _flush_audio_track(info: Dict, state: ParserState) -> None:
+        if state.track and state.track_type == "audio":
+            info["audio"].append(state.track.__dict__)
+            state.track = None
+            state.track_type = None

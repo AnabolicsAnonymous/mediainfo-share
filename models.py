@@ -11,10 +11,12 @@ the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
 
-from datetime import datetime
 import json
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+
+# pylint: disable=too-many-instance-attributes
 
 
 @dataclass
@@ -35,7 +37,7 @@ class MediaGeneral:
     complete_name: str = ""
 
 
-@dataclass
+@dataclass  # 
 class MediaVideo:
     """Class for the video section of mediainfo"""
     format: str = ""
@@ -50,7 +52,7 @@ class MediaVideo:
     transfer_characteristics: str = ""
 
 
-@dataclass
+@dataclass  # 
 class AudioTrack:
     """Class for storing audio track information"""
     language: str = ""
@@ -71,13 +73,13 @@ class SubtitleTrack:
     flag: str = ""
 
 
-@dataclass
+@dataclass  # 
 class MediaInfo:
     """Class for storing mediainfo data"""
-    media_id: str
-    filename: str
-    original_filename: str
-    uploaded_on: datetime
+    media_id: Optional[str] = None
+    filename: Optional[str] = None
+    original_filename: Optional[str] = None
+    uploaded_on: Optional[datetime] = None
     expiration: Optional[datetime] = None
     password: Optional[str] = None
     raw_output: str = ""
@@ -85,32 +87,12 @@ class MediaInfo:
     video: MediaVideo = field(default_factory=MediaVideo)
     audio: List[AudioTrack] = field(default_factory=list)
     subtitles: List[SubtitleTrack] = field(default_factory=list)
+    parsed_info: Optional[Dict] = field(default=None, repr=False)
 
-    def __init__(
-        self,
-        media_id: Optional[str] = None,
-        filename: Optional[str] = None,
-        original_filename: Optional[str] = None,
-        uploaded_on: Optional[datetime] = None,
-        expiration: Optional[datetime] = None,
-        password: Optional[str] = None,
-        raw_output: Optional[str] = None,
-        parsed_info: Optional[Dict] = None,
-    ):
-        self.media_id = media_id
-        self.filename = filename
-        self.original_filename = original_filename
-        self.uploaded_on = uploaded_on
-        self.expiration = expiration
-        self.password = password
-        self.raw_output = raw_output
-        self.general = MediaGeneral()
-        self.video = MediaVideo()
-        self.audio: List[AudioTrack] = []
-        self.subtitles: List[SubtitleTrack] = []
-
-        if parsed_info:
-            self._parse_info(parsed_info)
+    def __post_init__(self) -> None:
+        if self.parsed_info:
+            self._parse_info(self.parsed_info)
+            self.parsed_info = None
 
     def _parse_info(self, parsed_info: Dict) -> None:
         """Parse the parsed_info dictionary into the appropriate fields."""
@@ -126,29 +108,32 @@ class MediaInfo:
     @classmethod
     def from_dict(cls, data: Dict) -> "MediaInfo":
         """Create a MediaInfo object from a dictionary"""
-        media = cls()
-        media.media_id = data.get("id") or data.get("media_id")
-        media.filename = data.get("filename")
-        media.original_filename = data.get("original_filename")
-        media.uploaded_on = datetime.fromisoformat(data.get("uploaded_on")) \
-            if data.get("uploaded_on") else None
-        media.expiration = datetime.fromisoformat(data.get("expiration")) \
-            if data.get("expiration") else None
-        media.password = data.get("password")
-        media.raw_output = data.get("raw_output")
-
         parsed = data.get("parsed") or data.get("parsed_info")
-        if parsed:
-            if isinstance(parsed, str):
-                try:
-                    parsed = json.loads(parsed)
-                except json.JSONDecodeError:
-                    parsed = {}
+        if isinstance(parsed, str):
+            try:
+                parsed = json.loads(parsed)
+            except json.JSONDecodeError:
+                parsed = {}
 
-            if isinstance(parsed, dict):
-                media._parse_info(parsed)
+        return cls(
+            media_id=data.get("id") or data.get("media_id"),
+            filename=data.get("filename"),
+            original_filename=data.get("original_filename"),
+            uploaded_on=cls._parse_datetime(data.get("uploaded_on")),
+            expiration=cls._parse_datetime(data.get("expiration")),
+            password=data.get("password"),
+            raw_output=data.get("raw_output", ""),
+            parsed_info=parsed if isinstance(parsed, dict) else None,
+        )
 
-        return media
+    @staticmethod
+    def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
 
     def to_dict(self) -> Dict:
         """Convert the MediaInfo object to a dictionary"""
