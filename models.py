@@ -37,7 +37,7 @@ class MediaGeneral:
     complete_name: str = ""
 
 
-@dataclass 
+
 class MediaVideo:
     """Class for the video section of mediainfo"""
     format: str = ""
@@ -52,7 +52,7 @@ class MediaVideo:
     transfer_characteristics: str = ""
 
 
-@dataclass 
+
 class AudioTrack:
     """Class for storing audio track information"""
     language: str = ""
@@ -73,7 +73,7 @@ class SubtitleTrack:
     flag: str = ""
 
 
-@dataclass 
+
 class MediaInfo:
     """Class for storing mediainfo data"""
     media_id: Optional[str] = None
