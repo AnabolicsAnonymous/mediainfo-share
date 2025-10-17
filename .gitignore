@@ -1,5 +1,6 @@
 # Environment specific files
-mediainfo_data/*
+mediainfo_data/*.db
+mediainfo_data/static/*
 
 # Python
 __pycache__/
