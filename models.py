@@ -36,8 +36,7 @@ class MediaGeneral:
     frame_rate: str = ""
     complete_name: str = ""
 
-
-
+@dataclass  # pylint: disable=too-few-public-methods
 class MediaVideo:
     """Class for the video section of mediainfo"""
     format: str = ""
@@ -51,8 +50,7 @@ class MediaVideo:
     color_primaries: str = ""
     transfer_characteristics: str = ""
 
-
-
+@dataclass  # pylint: disable=too-few-public-methods
 class AudioTrack:
     """Class for storing audio track information"""
     language: str = ""
@@ -72,8 +70,7 @@ class SubtitleTrack:
     language: str = ""
     flag: str = ""
 
-
-
+@dataclass  # pylint: disable=too-many-instance-attributes
 class MediaInfo:
     """Class for storing mediainfo data"""
     media_id: Optional[str] = None
