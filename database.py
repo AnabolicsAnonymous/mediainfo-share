@@ -31,7 +31,11 @@ class Database:
         Args:
             db_path (str): Path to the SQLite database file
         """
-        self.db_path = db_path
+        configured_path = os.getenv("DATABASE_PATH")
+        self.db_path = configured_path if configured_path else db_path
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self.media_folder = os.getenv("UPLOAD_FOLDER", "static/media")
         self.init_db()
 
@@ -201,7 +205,10 @@ class Database:
 
 def get_db():
     """Get database connection."""
-    db_path = "mediainfo.db"
+    db_path = os.getenv("DATABASE_PATH", "mediainfo.db")
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn

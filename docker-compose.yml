@@ -1,49 +1,44 @@
-version: '3.8'
+version: "3.8"
 
 services:
   app:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mediainfo-share:latest
     container_name: mediainfo-share
     restart: unless-stopped
+    working_dir: /app
     ports:
       - "${FLASK_RUN_PORT:-5000}:5000"
-    volumes:
-      - mediainfo-media:/app/static/media
-      - mediainfo-db:/app
     environment:
-      # Flask Configuration
-      - FLASK_APP=app.py
-      - FLASK_ENV=${FLASK_ENV:-production}
-      - FLASK_DEBUG=${FLASK_DEBUG:-0}
-      - FLASK_RUN_HOST=${FLASK_RUN_HOST:-0.0.0.0}
-      - FLASK_RUN_PORT=${FLASK_RUN_PORT:-5000}
-      
-      # SSL Configuration
-      - SSL_CERT_PATH=${SSL_CERT_PATH:-./cert.pem}
-      - SSL_KEY_PATH=${SSL_KEY_PATH:-./key.pem}
-      - USE_SSL=${USE_SSL:-false}
-      
-      # Upload Configuration
-      - UPLOAD_FOLDER=${UPLOAD_FOLDER:-static/media}
-      - MAX_CONTENT_LENGTH=${MAX_CONTENT_LENGTH:-1048576}
-      - ALLOWED_EXTENSIONS=${ALLOWED_EXTENSIONS:-txt}
-      
-      # Encryption
-      - SECRET_KEY=${SECRET_KEY}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      
-      # Donation Addresses (Optional)
-      - BTC_ADDRESS=${BTC_ADDRESS:-}
-      - ETH_ADDRESS=${ETH_ADDRESS:-}
-      - USDC_ADDRESS=${USDC_ADDRESS:-}
-      - LTC_ADDRESS=${LTC_ADDRESS:-}
-    command: >
-      sh -c "apt-get update && apt-get install -y git gcc &&
-      git clone https://github.com/AnabolicsAnonymous/mediainfo-share.git &&
-      cd mediainfo-share &&
-      pip install --no-cache-dir -r requirements.txt &&
-      mkdir -p static/media &&
-      python3 app.py"
+      FLASK_APP: ${FLASK_APP:-app.py}
+      FLASK_ENV: ${FLASK_ENV:-production}
+      FLASK_DEBUG: ${FLASK_DEBUG:-0}
+      FLASK_RUN_HOST: ${FLASK_RUN_HOST:-0.0.0.0}
+      FLASK_RUN_PORT: ${FLASK_RUN_PORT:-5000}
+      USE_SSL: ${USE_SSL:-false}
+      SSL_CERT_PATH: ${SSL_CERT_PATH:-/srv/mediainfo/cert.pem}
+      SSL_KEY_PATH: ${SSL_KEY_PATH:-/srv/mediainfo/key.pem}
+      UPLOAD_FOLDER: ${UPLOAD_FOLDER:-/srv/mediainfo/static/media}
+      DATABASE_PATH: ${DATABASE_PATH:-/srv/mediainfo/mediainfo.db}
+      MAX_CONTENT_LENGTH: ${MAX_CONTENT_LENGTH:-1048576}
+      ALLOWED_EXTENSIONS: ${ALLOWED_EXTENSIONS:-txt}
+      SECRET_KEY: ${SECRET_KEY:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      BTC_ADDRESS: ${BTC_ADDRESS:-}
+      ETH_ADDRESS: ${ETH_ADDRESS:-}
+      USDC_ADDRESS: ${USDC_ADDRESS:-}
+      LTC_ADDRESS: ${LTC_ADDRESS:-}
+    volumes:
+      - mediainfo_app:/srv/mediainfo
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os, socket; s = socket.create_connection(('127.0.0.1', int(os.environ.get('FLASK_RUN_PORT', '5000'))), timeout=5); s.close()\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    command: ["python", "app.py"]
     networks:
       - mediainfo-network
 
@@ -52,5 +47,9 @@ networks:
     driver: bridge
 
 volumes:
-  mediainfo-media:
-  mediainfo-db: 
+  mediainfo_app:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./mediainfo_data

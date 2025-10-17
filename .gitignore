@@ -1,3 +1,6 @@
+# Environment specific files
+mediainfo_data/*
+
 # Python
 __pycache__/
 *.py[cod]
