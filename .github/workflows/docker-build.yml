@@ -1,0 +1,37 @@
+name: Docker Build Test
+
+on:
+  push:
+    paths:
+      - '**/Dockerfile'
+      - '**/requirements.txt'
+      - 'docker-compose.yml'
+      - 'app.py'
+      - '.github/workflows/docker-build.yml'
+  pull_request:
+    paths:
+      - '**/Dockerfile'
+      - '**/requirements.txt'
+      - 'docker-compose.yml'
+      - 'app.py'
+      - '.github/workflows/docker-build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate secrets
+        run: |
+          echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build . --file Dockerfile --tag mediainfo-share-test:latest
